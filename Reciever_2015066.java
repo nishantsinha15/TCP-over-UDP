@@ -1,6 +1,7 @@
 import java.io.*;
 import java.util.*;
 import java.net.*;
+import java.util.concurrent.TimeUnit;
 
 public class Reciever_2015066
 {
@@ -18,6 +19,8 @@ class Alice
     private byte sendAck_2015066[];
     private byte recieveMessage[];
     static int lastRecievedPacket;
+    static int bufferWindow = 20;
+    static int flag = 0;
 
     Alice() throws UnknownHostException, SocketException
     {
@@ -31,24 +34,37 @@ class Alice
             {
                 recieveMessage = new byte[100000];
                 DatagramPacket packet = new DatagramPacket( recieveMessage, recieveMessage.length );
+                TimeOut t = new TimeOut(in, socket, ip, lastRecievedPacket);
+                t.start();
+                flag = 0;
+                System.out.println("here");
                 socket.receive( packet );
+                System.out.println("Caught");
+                flag = 1;
                 Udp_2015066 pk1 = (Udp_2015066)Utility_2015066.convertToUdp(packet.getData());
                 String received = pk1.getMessage();
-                if( pk1.getNextSeqNumber() == Alice.lastRecievedPacket + 1 )
+                if( pk1.getNextSeqNumber() == lastRecievedPacket + 1 )
                 {
-                    Alice.lastRecievedPacket++;
+                    lastRecievedPacket++;
                     System.out.println( "Recieved = " + received +"\nAck_2015066 is "+pk1.getNextSeqNumber() );
+//                    System.out.println("  ");
+                    String ch = "a";
+                    if( ch.equalsIgnoreCase("b") )
+                    {
+                        Alice.bufferWindow--;
+                    }
+                    System.out.println("Buffer Window = " + Alice.bufferWindow);
                 }
                 else
                 {
-                    if( pk1.getNextSeqNumber() <= Alice.lastRecievedPacket )
-                        System.out.println( "Recieved duplicate packet. Discarding!" );
+                    if( pk1.getNextSeqNumber() <= lastRecievedPacket )
+                        System.out.println( "Recieved duplicate packet = "+( pk1.getNextSeqNumber()-1 )+". Discarding!" );
                     else
-                        System.out.println( "Missed "+ (pk1.getNextSeqNumber() -Alice.lastRecievedPacket - 1) +" packets inbetween. Discarding!" );
+                        System.out.println( "Missed "+ (pk1.getNextSeqNumber() - lastRecievedPacket - 1) +" packets inbetween. Discarding!" );
                 }
-                System.out.println("Sending Ack_2015066 for "+Alice.lastRecievedPacket );
+                System.out.println("Sending Ack_2015066 for "+ lastRecievedPacket );
                 sendAck_2015066 = new byte[100000];
-                Ack_2015066 pk = new Ack_2015066( Alice.lastRecievedPacket );
+                Ack_2015066 pk = new Ack_2015066( lastRecievedPacket, bufferWindow );
                 sendAck_2015066 = Utility_2015066.convertToBytes(pk);
                 DatagramPacket data = new DatagramPacket( sendAck_2015066, sendAck_2015066.length, ip, 9000);
                 socket.send( data );
@@ -67,99 +83,49 @@ class Alice
 
 }
 
-// class RecieveMessage extends Thread
-// {
-// 	private BufferedReader in;
-// 	private DatagramSocket socket;
-// 	private InetAddress ip;
-// 	private byte recieveMessage[];
+class TimeOut extends Thread
+{
+    private BufferedReader in;
+    private DatagramSocket socket;
+    private InetAddress ip;
+    private byte sendMessage[];
+    private int pk1;
+    private byte sendAck_2015066[];
 
-// 	RecieveMessage( BufferedReader in, DatagramSocket socket, InetAddress ip, byte recieveMessage[] )
-// 	{
-// 		this.in = in;
-// 		this.socket = socket;
-// 		this.ip = ip;
-// 		this.recieveMessage = recieveMessage;
-// 	}
+    TimeOut(BufferedReader in, DatagramSocket socket, InetAddress ip, int pk)
+    {
+        this.in = in;
+        this.socket = socket;
+        this.ip = ip;
+        this.pk1 = pk;
+    }
+    public void run()
+    {
+        while(true)
+        {
+            try {
+                TimeUnit.SECONDS.sleep(3);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            if (Alice.flag == 0 && pk1 == Alice.lastRecievedPacket) {
+                System.out.println("TIME OUT!Sending again");
 
-// 	public void run()
-// 	{
-// 		System.out.println("Atleast here");
-// 		while(true)
-// 		{
-// 			try
-// 			{
-// recieveMessage = new byte[100000];
-// DatagramPacket packet = new DatagramPacket( recieveMessage, recieveMessage.length );
-// System.out.println("Waiting here");
-// socket.receive( packet );
+                try {
+                    System.out.println("\tSending Ack_2015066 for " + pk1);
+                    sendAck_2015066 = new byte[100000];
+                    Ack_2015066 pk = new Ack_2015066(pk1, Alice.bufferWindow);
+                    sendAck_2015066 = Utility_2015066.convertToBytes(pk);
+                    DatagramPacket data = new DatagramPacket(sendAck_2015066, sendAck_2015066.length, ip, 9000);
+                    socket.send(data);
+                    System.out.println("\tSent");
+                } catch (IOException er) {
+                    er.printStackTrace();
+                }
+            } else {
+                break;
+            }
+        }
+    }
 
-// Udp_2015066 pk = (Udp_2015066)Utility_2015066.convertToUdp_2015066(packet.getData());
-// String received = pk.getMessage();
-// System.out.println( "Got = " + received +" Ack_2015066 is "+pk.getNextSeqNumber() );
-// if( pk.getNextSeqNumber() == Alice.lastRecievedPacket + 1 )
-// 	Alice.lastRecievedPacket++;
-// System.out.println(pk.getNextSeqNumber()+", "+Alice.lastRecievedPacket +", "+Flag.value);
-// System.out.println("Sending Ack_2015066");
-// sendAck_2015066 = new byte[100000];
-// Ack_2015066 pk = new Ack_2015066( Alice.lastRecievedPacket );
-// sendAck_2015066 = Utility_2015066.convertToBytes(pk);
-// DatagramPacket data = new DatagramPacket( sendAck_2015066, sendAck_2015066.length, ip, 9000);
-// socket.send( data );
-// System.out.println("Sent");
-// 			}
-// 			catch( IOException e )
-// 			{
-// 				System.out.println("Error");
-// 			}
-// 			catch( ClassNotFoundException er)
-// 			{
-// 				System.out.println("Class not found");
-// 			}
-// 		}
-
-// 	}
-
-// }
-
-// class SendAck_2015066 extends Thread
-// {
-// 	private BufferedReader in;
-// 	private DatagramSocket socket;
-// 	private InetAddress ip;
-// 	private byte sendAck_2015066[];
-
-// 	SendAck_2015066( BufferedReader in, DatagramSocket socket, InetAddress ip, byte sendAck_2015066[] )
-// 	{
-// 		this.in = in;
-// 		this.socket = socket;
-// 		this.ip = ip;
-// 		this.sendAck_2015066 = sendAck_2015066;
-// 	}
-
-// 	public void run()
-// 	{
-// 		while( true )
-// 		{
-// 			if( Flag.value == 1 )
-// 			{
-// 				try
-// 				{
-// 					System.out.println(Flag.value);
-// 					System.out.println("Got here");
-// 					sendAck_2015066 = new byte[100000];
-// 					Ack_2015066 pk = new Ack_2015066( Alice.lastRecievedPacket );
-// 					sendAck_2015066 = Utility_2015066.convertToBytes(pk);
-// 					DatagramPacket data = new DatagramPacket( sendAck_2015066, sendAck_2015066.length, ip, 9000);
-// 					socket.send( data );
-// 					System.out.println("Sent");
-// 					Flag.value = 0;
-// 				}
-// 				catch( IOException er )
-// 				{
-// 					er.printStackTrace();
-// 				}
-// 			}
-// 		}
-// 	}
-// }
+}
