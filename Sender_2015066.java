@@ -161,7 +161,7 @@ class RecieveAck extends Thread
                     {
                         Bob.ssthresh = Bob.cwnd/2;
                         Bob.cwnd /= 2;
-                        System.out.println("	 	R : FLOW CONTROL. 3 duplicate Acks.\nCwnd = "+Bob.cwnd+" and ssthresh = "+Bob.ssthresh);
+                        System.out.println("	 	R : CONGESTION CONTROL. 3 duplicate Acks.\nCwnd = "+Bob.cwnd+" and ssthresh = "+Bob.ssthresh);
                     }
                 }
             }
